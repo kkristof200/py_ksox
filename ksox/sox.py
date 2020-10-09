@@ -1,11 +1,14 @@
 # --------------------------------------------------------------- Imports ---------------------------------------------------------------- #
 
 # System
-from typing import List
+from typing import List, Optional
 import os
 
 # Pip
 from kcu import sh
+
+# Local
+from .models.sox_stats import SoxStats
 
 # ---------------------------------------------------------------------------------------------------------------------------------------- #
 
@@ -27,3 +30,12 @@ def mix(in_paths: List[str], out_path: str, debug: bool = False) -> bool:
     sh.sh('sox -m {} {}'.format(' '.join([sh.path(p) for p in in_paths]), sh.path(out_path)), debug=debug)
 
     return os.path.exists(out_path)
+
+def get_stats(path: str, debug: bool = False) -> Optional[SoxStats]:
+    try:
+        return SoxStats(sh.sh('sox {} -n stat'.format(path), debug=debug))
+    except Exception as e:
+        if debug:
+            print(e)
+
+        return None
