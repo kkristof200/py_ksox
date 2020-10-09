@@ -39,3 +39,8 @@ def get_stats(path: str, debug: bool = False) -> Optional[SoxStats]:
             print(e)
 
         return None
+
+def adjust_volume(in_path: str, out_path: str, multi: float, debug: bool = False) -> bool:
+    sh.sh('sox -v {} {} {}'.format(multi, sh.path(in_path), sh.path(out_path)), debug=debug)
+
+    return os.path.exists(out_path)
