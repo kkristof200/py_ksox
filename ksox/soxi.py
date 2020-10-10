@@ -27,3 +27,12 @@ def get_sample_rate(path: str, debug: bool = False) -> Optional[int]:
             print(e)
 
         return None
+
+def get_len(path: str, debug: bool = False) -> float:
+    try:
+        return float(sh.sh('soxi -D {}'.format(sh.path(path))).strip())
+    except Exception as e:
+        if debug:
+            print(e)
+
+        return None
