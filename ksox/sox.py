@@ -1,7 +1,7 @@
 # --------------------------------------------------------------- Imports ---------------------------------------------------------------- #
 
 # System
-from typing import List, Optional
+from typing import List, Tuple, Optional
 import os
 
 # Pip
@@ -9,6 +9,7 @@ from kcu import sh
 
 # Local
 from .models.sox_stats import SoxStats
+from .models.concat_song_element import ConcatSongElement
 from . import soxi
 
 # ---------------------------------------------------------------------------------------------------------------------------------------- #
@@ -22,10 +23,19 @@ def change_sample_rate(in_path: str, out_path: str, sample_rate: int, debug: boo
 
     return os.path.exists(out_path)
 
-def concat(in_paths: List[str], out_path: str, debug: bool = False) -> bool:
+def concat(in_paths: List[str], out_path: str, debug: bool = False) -> Tuple[Optional[List[ConcatSongElement]], Optional[int]]:
+    song_elements = []
+    total_len = 0
+
+    for p in in_paths:
+        len_s = soxi.get_len(p)
+        song_elements.append(ConcatSongElement(p, total_len, total_len + len_s))
+
+        total_len += len_s
+
     sh.sh('sox {} {}'.format(' '.join([sh.path(p) for p in in_paths]), sh.path(out_path)), debug=debug)
 
-    return os.path.exists(out_path)
+    return (song_elements, total_len) if os.path.exists(out_path) else (None, None)
 
 def mix(in_paths: List[str], out_path: str, debug: bool = False) -> bool:
     sh.sh('sox -m {} {}'.format(' '.join([sh.path(p) for p in in_paths]), sh.path(out_path)), debug=debug)
@@ -54,15 +64,24 @@ def trim(in_path: str, out_path: str, len_s: float, start_s: float = 0, debug: b
 
 def fade(in_path: str, out_path: str, fade_in_s: float = 0, fade_out_s: float = 0, shape: str = 'q', debug: bool = False) -> bool:
     '''shape can be: 'q', 'h', 't', 'p', 'l' '''
-    sh.sh('sox {} {} fade q {} -0 {}'.format(sh.path(in_path), sh.path(out_path), fade_in_s, fade_out_s), debug=debug)
+    sh.sh('sox {} {} fade {} {} -0 {}'.format(sh.path(in_path), sh.path(out_path), shape, fade_in_s, fade_out_s), debug=debug)
 
     return os.path.exists(out_path)
 
-def crossfade(in_paths: List[str], out_path: str, temp_folder_path: str, fade_s: float = 0, shape: str = 'q', debug: bool = False) -> bool:
+def crossfade(
+    in_paths: List[str],
+    out_path: str,
+    temp_folder_path: str,
+    fade_s: float = 2.0,
+    shape: str = 'q',
+    debug: bool = False
+) -> Tuple[Optional[List[ConcatSongElement]], Optional[int]]:
     ext = in_paths[0].split('.')[-1]
     starts = []
     ends = []
     middles = []
+    song_elements = []
+    total_len_s = 0
 
     i=0
     for in_path in in_paths:
@@ -75,7 +94,7 @@ def crossfade(in_paths: List[str], out_path: str, temp_folder_path: str, fade_s:
             fade(p0, pf0, fade_in_s=fade_s, shape=shape, debug=debug)
             # os.remove(p0)
             starts.append(pf0)
-        elif i != len(in_paths) - 1:
+        if i != len(in_paths) - 1:
             p2 = os.path.join(temp_folder_path, 'p-' + str(i) + '-2.' + ext)
             pf2 = os.path.join(temp_folder_path, 'pf-' + str(i) + '-2.' + ext)
             trim(in_path, p2, fade_s, -fade_s, debug=debug)
@@ -85,13 +104,19 @@ def crossfade(in_paths: List[str], out_path: str, temp_folder_path: str, fade_s:
 
         p1 = os.path.join(temp_folder_path, 'p-' + str(i) + '-1.' + ext)
 
+        start_s = total_len_s - fade_s
+
         if i == 0:
             trim(in_path, p1, len_s - fade_s, debug=debug)
+            start_s = 0
+            total_len_s += fade_s
         elif i == len(in_paths) - 1:
             trim(in_path, p1, len_s - fade_s, start_s=fade_s, debug=debug)
         else:
             trim(in_path, p1, len_s - 2*fade_s, start_s=fade_s, debug=debug)
 
+        total_len_s += len_s - fade_s
+        song_elements.append(ConcatSongElement(in_path, start_s, total_len_s))
         middles.append(p1)
         i+=1
 
@@ -116,4 +141,4 @@ def crossfade(in_paths: List[str], out_path: str, temp_folder_path: str, fade_s:
         for p in pp:
             os.remove(p)
 
-    return os.path.exists(out_path)
+    return (song_elements, total_len_s) if os.path.exists(out_path) else (None, None)

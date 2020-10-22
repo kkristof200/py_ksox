@@ -9,14 +9,14 @@ else:
 
 setuptools.setup(
     name="ksox",
-    version="0.0.5",
+    version="0.0.6",
     author="Kristof",
     description="ksox utils",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/kkristof200/py_ksox",
     packages=setuptools.find_packages(),
-    install_requires=["kcu"],
+    install_requires=["jsoncodable", "kcu"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
